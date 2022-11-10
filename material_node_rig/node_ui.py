@@ -1,9 +1,4 @@
 import bpy
-from  . import material_node_rigging
-
-from importlib import reload
-reload(material_node_rigging)
-
 from .material_node_rigging import *
 
 PREF_TEXT = 'Material-Node Rigging'
@@ -12,7 +7,7 @@ PREF_DESCRIPTION = "Activate feature: 'Material-Node Rigging'"
 
 class NodeRigOperator(bpy.types.Operator):
     """Create properties corresponding to deafult values of the active node inputs, 
-    on the target. Attention: wipes previous custom properties from the target"""
+    on the target. Warning: wipes previous custom properties from the target"""
     bl_idname = "node.rig_material_nodes"
     bl_label = "Rig Inputs"
     
@@ -149,7 +144,7 @@ def bones(self, context):
     else:
         return 
 
-def fw_register():
+def node_ui_register():
     bpy.utils.register_class(NodeRigPanel)
     bpy.utils.register_class(NodeRigOperator)
     bpy.utils.register_class(AddEmptyOperator)
@@ -175,7 +170,7 @@ def fw_register():
                                                 description="intprop for list")                                                           
                     
 
-def fw_unregister():
+def node_ui_unregister():
     bpy.utils.unregister_class(ClearPropsOperator)
     bpy.utils.unregister_class(ClearDriversOperator)
     bpy.utils.unregister_class(AddEmptyOperator)
@@ -190,4 +185,4 @@ def fw_unregister():
 
 
 if __name__ == '__main__':
-    fw_register()
+    node_ui_register()
