@@ -17,15 +17,15 @@
 
 
 bl_info = {
-    "name": "production_name_here",
+    "name": "MAD Shading Tools ",
     "author": "Betti",
-    "version": (0, 0, 0),
+    "version": (1, 0, 0),
     "blender": (3, 0, 0),
-    "location": "View3D > production_name_here",
-    "description": """Addons for the production_name_here production""",
+    "location": "Nodes > MAD Shading Tools",
+    "description": """Material node rig and other operators""",
     "warning": "",
     "doc_url": "",
-    "category": "production-specific",
+    "category": "Material",
 }
 
 
