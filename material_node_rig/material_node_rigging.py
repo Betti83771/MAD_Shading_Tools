@@ -1,5 +1,4 @@
 import bpy
-from rna_prop_ui import rna_idprop_ui_prop_get
 
 def error(self, string):
     self.report({'WARNING'}, string)
@@ -43,20 +42,24 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
         prop_name_unspaced = prop_name.replace(' ', '_')
         if use_index_prefix == True:
             prop_name = str(i).zfill(2) + ' - ' + prop_name
+        
 
         if bone:
             pose_bones[bone][prop_name] = default
-            prop = rna_idprop_ui_prop_get(pose_bones[bone], prop_name)
+            id_props = pose_bones[bone].id_properties_ui(prop_name)
+        
         else:
             obj[prop_name] = default
-            prop = rna_idprop_ui_prop_get(obj, prop_name)
-        prop["subtype"] = inpu.bl_rna.properties["default_value"].subtype
-        prop["min"] = inpu.bl_rna.properties["default_value"].hard_min
-        prop["max"] = inpu.bl_rna.properties["default_value"].hard_max
-        prop["soft_min"] = inpu.bl_rna.properties["default_value"].soft_min
-        prop["soft_max"] = inpu.bl_rna.properties["default_value"].soft_max
-        prop["default"] = default
-        prop["description"] = prop_name
+            id_props = obj.id_properties_ui(prop_name)
+
+        id_props.update(subtype= inpu.bl_rna.properties["default_value"].subtype,
+                        min=inpu.bl_rna.properties["default_value"].hard_min,
+                        max=inpu.bl_rna.properties["default_value"].hard_max,
+                        soft_min=inpu.bl_rna.properties["default_value"].soft_min,
+                        soft_max=inpu.bl_rna.properties["default_value"].soft_max,
+                        default= default,
+                        description=prop_name
+                        )
         if bpy.context.window_manager.use_lib_overridable_props:
             if bone:
                 pose_bones[bone].property_overridable_library_set('["{0}"]'.format(prop_name), True)
