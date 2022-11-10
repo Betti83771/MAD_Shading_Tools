@@ -1,0 +1,5 @@
+\.vscode/
+__pycache__/
+\.gitignore
+\readme.txt
+mad_shading_tools_updater/
