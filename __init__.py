@@ -63,6 +63,7 @@ def import_and_reload_all_modules(modules_names:list):
 from .addon_updater_ops import *
 from .ui import *
 from .preferences_ui import Prefs
+from .material_node_rig.node_ui import *
 
 
 
@@ -72,11 +73,13 @@ def register():
     addon_update_register(bl_info)
     bpy.utils.register_class(Prefs)
     ui_register()
+    node_ui_register()
     
     
 
 
 def unregister():
+    node_ui_unregister()
     ui_unregister()
     bpy.utils.unregister_class(Prefs)
     addon_update_unregister()
