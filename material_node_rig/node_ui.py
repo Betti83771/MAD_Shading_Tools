@@ -167,7 +167,8 @@ def node_ui_register():
                                                 description="""Check to make the generated properties on target library overridable""" )
     bpy.types.WindowManager.intlist = bpy.props.IntProperty(default=0,
                                                 name='intlist', 
-                                                description="intprop for list")                                                           
+                                                description="intprop for list")   
+    bpy.types.WindowManager.mst_refresh_drivers_found = bpy.props.BoolProperty()                                                         
                     
 
 def node_ui_unregister():
@@ -176,6 +177,7 @@ def node_ui_unregister():
     bpy.utils.unregister_class(AddEmptyOperator)
     bpy.utils.unregister_class(NodeRigOperator)
     bpy.utils.unregister_class(NodeRigPanel)
+    del bpy.types.WindowManager.mst_refresh_drivers_found
     del bpy.types.WindowManager.main_target
     del bpy.types.WindowManager.subtarget
     del bpy.types.WindowManager.use_index_prefix
