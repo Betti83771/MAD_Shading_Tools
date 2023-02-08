@@ -19,7 +19,7 @@
 bl_info = {
     "name": "MAD Shading Tools ",
     "author": "Betti",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (3, 0, 0),
     "location": "Nodes > MAD Shading Tools",
     "description": """Material node rig and other operators""",
@@ -74,6 +74,14 @@ def register():
     bpy.utils.register_class(Prefs)
     ui_register()
     node_ui_register()
+
+    #check for a refresh drivers addon and set flag
+    try:
+        bpy.ops.object.refresh_drivers.poll()
+    except AttributeError:
+        bpy.context.window_manager.mst_refresh_drivers_found = False
+        return
+    bpy.context.window_manager.mst_refresh_drivers_found = True
     
     
 
