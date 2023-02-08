@@ -30,7 +30,7 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
     if not node_inputs_dict:
         return
 
-    remove_target_properties(obj, bone=bone)
+    all_prop_names = []
 
     if bone:
         pose_bones = obj.pose.bones
@@ -92,6 +92,8 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
                 data_path = path_start + '[' + '"' + prop_name + '"' + ']'
             var.targets[0].data_path = data_path
         
+        return prop_name
+        
            
            
 
@@ -99,20 +101,25 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
         value = inpu[0].default_value
         #print(value, "value")
 
-        driver_prop(value, inpu)
+        prop_name = driver_prop(value, inpu)
+        all_prop_names.append(prop_name)
 
     for inpu in node_inputs_dict['VECTOR']:
         vector_tuple = tuple(value for value in inpu[0].default_value)
         #print(color_tuple, "value")
 
-        driver_prop(vector_tuple, inpu)
+        prop_name = driver_prop(vector_tuple, inpu)
+        all_prop_names.append(prop_name)
+
         
         
     for inpu in node_inputs_dict['RGBA']:
         color_tuple = tuple(value for value in inpu[0].default_value)
         #print(color_tuple, "value")
 
-        driver_prop(color_tuple, inpu)
+        prop_name = driver_prop(color_tuple, inpu)
+        all_prop_names.append(prop_name)
+
         
         #driver_prop((0.0, 0.0, 0.0, 0.0), inpu)
     
@@ -122,12 +129,31 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
         bpy.context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='POSE')
         obj.data.bones.active = obj.data.bones[bone]
-        bpy.ops.object.refresh_drivers(selected_only=False)
+        if bpy.context.window_manager.mst_refresh_drivers_found:
+            bpy.ops.object.refresh_drivers(selected_only=False)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.view_layer.objects.active = curr_act
         
     else:
         obj.update_tag()
+    
+    props_to_be_deleted = []
+    if bone:
+        pose_bones = obj.pose.bones
+        for prop in reversed(pose_bones[bone].keys()): 
+            if prop not in all_prop_names:
+                props_to_be_deleted.append(prop) 
+        for prop in props_to_be_deleted:
+            del pose_bones[bone][prop]
+    else:
+        for prop in obj.keys():
+            if prop not in all_prop_names:
+                props_to_be_deleted.append(prop) 
+        for prop in props_to_be_deleted:
+            del obj[prop]
+    
+
+
     
 def remove_node_drivers(self, active_node:bpy.types.Node):
 
@@ -142,10 +168,11 @@ def remove_node_drivers(self, active_node:bpy.types.Node):
     return
 
 def remove_target_properties(target, bone=None):
+    """DEprecaated"""
     # wipe existing properties 
     if bone:
             pose_bones = target.pose.bones
-            for prop in pose_bones[bone].keys():
+            for prop in reversed(pose_bones[bone].keys()):
                 del pose_bones[bone][prop]
     else:
         for prop in target.keys():
