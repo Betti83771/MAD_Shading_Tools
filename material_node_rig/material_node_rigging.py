@@ -129,17 +129,19 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
         bpy.context.view_layer.objects.active = obj
        # bpy.ops.object.mode_set(mode='POSE')
        # obj.data.bones.active = obj.data.bones[bone]
-        try:
-            bpy.ops.object.refresh_drivers.poll()
-        except AttributeError:
-            pass
-        else:
-            bpy.ops.object.refresh_drivers(selected_only=False)
+        
         #bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.view_layer.objects.active = curr_act
         
+        
+    obj.update_tag()
+    
+    try:
+        bpy.ops.object.refresh_drivers.poll()
+    except AttributeError:
+        pass
     else:
-        obj.update_tag()
+        bpy.ops.object.refresh_drivers(selected_only=False)
     
     props_to_be_deleted = []
     if bone:
