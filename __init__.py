@@ -19,7 +19,7 @@
 bl_info = {
     "name": "MAD Shading Tools ",
     "author": "Betti",
-    "version": (1, 2, 0),
+    "version": (1, 2, 1),
     "blender": (3, 0, 0),
     "location": "Nodes > MAD Shading Tools",
     "description": """Material node rig and other operators""",
@@ -73,7 +73,10 @@ def register():
     import_and_reload_all_modules([])
     addon_update_register(bl_info)
     bpy.utils.register_class(Prefs)
-    refr_drvs_register()
+    try:
+        bpy.ops.object.refresh_drivers.poll()
+    except AttributeError:
+        refr_drvs_register()
     ui_register()
     node_ui_register()
 
@@ -84,6 +87,11 @@ def register():
 def unregister():
     node_ui_unregister()
     ui_unregister()
-    refr_drvs_unregister()
+    try:
+        bpy.ops.object.refresh_drivers.poll()
+    except AttributeError:
+        pass
+    else:
+        refr_drvs_unregister()
     bpy.utils.unregister_class(Prefs)
     addon_update_unregister()
