@@ -19,7 +19,7 @@
 bl_info = {
     "name": "MAD Shading Tools ",
     "author": "Betti",
-    "version": (1, 2, 1),
+    "version": (1, 3, 0),
     "blender": (3, 0, 0),
     "location": "Nodes > MAD Shading Tools",
     "description": """Material node rig and other operators""",
@@ -65,7 +65,7 @@ from .ui import *
 from .preferences_ui import Prefs
 from .material_node_rig.node_ui import *
 from .deps.operators_refresh_drivers import refr_drvs_register, refr_drvs_unregister
-
+from .gp_shading.grease_pencil_rigging import gpr_register, gpr_unregister
 
 
 
@@ -77,16 +77,17 @@ def register():
         bpy.ops.object.refresh_drivers.poll()
     except AttributeError:
         refr_drvs_register()
-    ui_register()
     node_ui_register()
-
+    gpr_register()
+    ui_register()
     
     
 
 
 def unregister():
-    node_ui_unregister()
     ui_unregister()
+    gpr_unregister()
+    node_ui_unregister()
     try:
         bpy.ops.object.refresh_drivers.poll()
     except AttributeError:
