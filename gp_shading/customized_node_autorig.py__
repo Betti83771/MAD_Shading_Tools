@@ -1,0 +1,295 @@
+import bpy
+from mathutils import Vector
+from rna_prop_ui import rna_idprop_ui_prop_get
+
+PREF_TEXT = 'Customized node autorig'
+PREF_DESCRIPTION = "Activate feature: 'Customized node autorig'. Formerly ISOA (Image sequence offset autorig)"
+
+
+#################################
+#         GENERIC FUNCS         #
+#################################
+def get_material_from_nodetree(nodetree):
+    for mat in bpy.data.materials:
+        if mat.node_tree == nodetree: return mat
+
+def rig_target_check(rig_target, rig_subtarget):
+    """Returns True or False whether the driver should be created"""
+    if rig_target == None:
+        print("FW - Customized node autorig: chosen rig not found. Driver not created.")
+        return False
+    if rig_target.type != 'ARMATURE': 
+        print("FW - Customized node autorig: chosen rig is not actually a rig. Driver not created.")
+        return False
+    if rig_subtarget not in rig_target.pose.bones.keys():
+        print("FW - Customized node autorig: chosen bone not found. Driver not created.")
+        return False
+        
+    else:
+        return True
+
+
+def make_driver(data, data_target:str, var_target_data:bpy.types.Object, var_target_prop:str, expr='var', drv_index=-1):
+    drv = data.driver_add(data_target, drv_index).driver
+    drv.type = 'SCRIPTED'
+    drv.expression = expr
+    
+    for variable in drv.variables:
+        drv.variables.remove(variable)
+    var = drv.variables.new()
+    var.name = 'var'
+    var.type = "SINGLE_PROP"
+    var.targets[0].id = var_target_data
+    var.targets[0].data_path = var_target_prop
+    return drv
+        
+
+#############################################
+#         IMAGE SEQUENCE NODE FUNCS         #
+#############################################
+def image_node_operations(image_node:bpy.types.ShaderNodeTexImage):
+    image_node.interpolation = 'Smart'
+    image_node.image.source = 'SEQUENCE'
+    image_node.image_user.use_auto_refresh = True
+    image_node.image_user.frame_duration = 100000
+    image_node.image_user.frame_start = 1
+    image_node.image_user.frame_offset = 1
+
+def image_node_make_new_value_node(node_tree:bpy.types.ShaderNodeTree, image_node:bpy.types.ShaderNodeTexImage):
+    """Makes the value node and adds the frame with the image node"""
+    
+    value_node_label = "first frame - " + image_node.image.name
+    if value_node_label in node_tree.nodes.keys():
+        node_tree.nodes.remove(node_tree.nodes[value_node_label])
+        node_tree.nodes.remove(node_tree.nodes["node frame - " + image_node.image.name])
+
+    value_node = node_tree.nodes.new(type='ShaderNodeValue')
+    value_node.location = image_node.location + Vector((0.0, 90.0))
+    value_node.label = value_node_label
+    value_node.name = value_node_label
+    value_node.outputs[0].default_value = float(image_node.image.name.split("_")[-1].replace(".png", ""))
+    frame = node_tree.nodes.new(type='NodeFrame')
+    frame.name = "node frame - " + image_node.image.name
+    frame.label = frame.name
+    value_node.parent = frame
+    image_node.parent = frame
+    return value_node
+
+def image_node_make_prop_on_bone(rig_obj, bone_name):
+    """makes a float prop on the specified pose bone with the name "06-Time-Offset". """
+    rig_obj.pose.bones[bone_name]["06-Time-Offset"] = 1
+
+def image_node_make_offset_driver(material:bpy.types.Material, image_node:bpy.types.ShaderNodeTexImage, rig_obj:bpy.types.Object, bone_name:str):
+    node_tree = material.node_tree
+    if not node_tree.animation_data: 
+        node_tree.animation_data_create()
+    for driv in  node_tree.animation_data.drivers:
+        if driv.data_path == f'nodes["{image_node.name}"].image_user.frame_offset': node_tree.animation_data.drivers.remove(driv)
+    new_driv_fcurve = image_node.image_user.driver_add('frame_offset')
+    new_driv = new_driv_fcurve.driver
+    new_driv.type = 'SCRIPTED'
+    for variable in new_driv.variables:
+        new_driv.variables.remove(variable)
+    var = new_driv.variables.new()
+    var.name = "var"
+    var.type = "SINGLE_PROP"
+    var.targets[0].id = rig_obj
+    var.targets[0].data_path = f'pose.bones["{bone_name}"]["06-Time-Offset"]'
+    first_frame_var = new_driv.variables.new()
+    first_frame_var.name = "first_frame"
+    first_frame_var.type = "SINGLE_PROP"
+    first_frame_var.targets[0].id_type = 'MATERIAL'
+    first_frame_var.targets[0].id = material
+    first_frame_var.targets[0].data_path = f'node_tree.nodes["first frame - {image_node.image.name}"].outputs[0].default_value'
+    new_driv.expression = "first_frame - var"
+    rig_obj.update_tag()
+    material.update_tag()
+
+def image_node_generate(material, image_node, rig_target, rig_subtarget):
+    image_node_operations(image_node)
+    image_node_make_new_value_node(material.node_tree, image_node)
+    if rig_target_check(rig_target, rig_subtarget):
+        image_node_make_prop_on_bone(rig_target, rig_subtarget)
+        image_node_make_offset_driver(material, image_node, rig_target, rig_subtarget)
+
+###################################################
+#         HUE SATURATION VALUE NODE FUNCS         #
+###################################################
+def hue_sat_val_node_drivers(material:bpy.types.Material, node:bpy.types.ShaderNodeHueSaturation, rig_obj:bpy.types.Object, bone_name:str):
+    node_tree = material.node_tree
+    if not node_tree.animation_data: 
+        node_tree.animation_data_create()
+    for driv in  node_tree.animation_data.drivers:
+        if driv.data_path == f'nodes["{node.name}"].inputs[0].default_value': node_tree.animation_data.drivers.remove(driv)
+        if driv.data_path == f'nodes["{node.name}"].inputs[1].default_value': node_tree.animation_data.drivers.remove(driv)
+        if driv.data_path == f'nodes["{node.name}"].inputs[2].default_value': node_tree.animation_data.drivers.remove(driv)
+    make_driver(node.inputs[0], "default_value", rig_obj, f'pose.bones["{bone_name}"]["01-Hue"]')
+    make_driver(node.inputs[1], "default_value", rig_obj, f'pose.bones["{bone_name}"]["02-Saturation"]') 
+    make_driver(node.inputs[2], "default_value", rig_obj, f'pose.bones["{bone_name}"]["03-Value"]')
+    rig_obj.update_tag()
+    material.update_tag()
+
+def hue_sat_val_node_generate(material, node, rig_target, rig_subtarget):
+    if not rig_target_check(rig_target, rig_subtarget):
+        return
+    rig_target.pose.bones[rig_subtarget]["01-Hue"] = 0.5
+    rig_target.pose.bones[rig_subtarget]["02-Saturation"] = 1.0
+    rig_target.pose.bones[rig_subtarget]["03-Value"] = 1.0
+    hue_sat_val_node_drivers(material, node, rig_target, rig_subtarget)
+    
+
+######################################
+#         MIX RGB NODE FUNCS         #
+######################################
+def mix_rgb_node_generate(material, node, rig_target, rig_subtarget):
+    if not rig_target_check(rig_target, rig_subtarget):
+        return
+    rig_target.pose.bones[rig_subtarget]["04-Tint"] = (1.0, 1.0, 1.0)
+    color_prop = rna_idprop_ui_prop_get(rig_target.pose.bones[rig_subtarget], "04-Tint")
+    color_prop["subtype"] = 'COLOR'#node.inputs[2].bl_rna.properties["default_value"].subtype
+    rig_target.pose.bones[rig_subtarget]["05-Tint-Strength"] = 0.0
+    node_tree = material.node_tree
+    if not node_tree.animation_data: 
+        node_tree.animation_data_create()
+    for driv in  node_tree.animation_data.drivers:
+        if driv.data_path == f'nodes["{node.name}"].inputs[0].default_value': node_tree.animation_data.drivers.remove(driv)
+    make_driver(node.inputs[0], "default_value", rig_target, f'pose.bones["{rig_subtarget}"]["05-Tint-Strength"]')
+    make_driver(node.inputs[2], "default_value", rig_target, f'pose.bones["{rig_subtarget}"]["04-Tint"][0]', drv_index=0)
+    make_driver(node.inputs[2], "default_value", rig_target, f'pose.bones["{rig_subtarget}"]["04-Tint"][1]', drv_index=1)
+    make_driver(node.inputs[2], "default_value", rig_target, f'pose.bones["{rig_subtarget}"]["04-Tint"][2]', drv_index=2)
+    rig_target.update_tag()
+    material.update_tag()
+    bpy.ops.object.refresh_drivers(selected_only=False)
+    return
+
+#########################################
+#         MIX SHADER NODE FUNCS         #
+#########################################
+def mix_shader_node_generate(material, node, rig_target, rig_subtarget):
+    if not rig_target_check(rig_target, rig_subtarget):
+        return
+    rig_target.pose.bones[rig_subtarget]["07-Opacity"] = 1.0
+    node_tree = material.node_tree
+    if not node_tree.animation_data: 
+        node_tree.animation_data_create()
+    for driv in  node_tree.animation_data.drivers:
+        if driv.data_path == f'nodes["{node.name}"].inputs[0].default_value': node_tree.animation_data.drivers.remove(driv)
+    make_driver(node.inputs[0], "default_value", rig_target, f'pose.bones["{rig_subtarget}"]["07-Opacity"]')
+    rig_target.update_tag()
+    material.update_tag()
+    return
+
+#########################
+#          UI           #
+#########################
+
+class IsoaGenerate(bpy.types.Operator):
+    """does stuff"""
+    bl_idname = "fw_isoa.generate"
+    bl_label = "Generate"
+    
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        if isinstance(context.space_data, bpy.types.SpaceNodeEditor):
+            node_editor = bpy.context.space_data 
+            if not node_editor.edit_tree:
+                return False
+            if not node_editor.edit_tree.nodes.active:
+                return False
+            return True
+
+        else:
+            return False
+            
+        
+
+    def execute(self, context):
+        material = get_material_from_nodetree(context.space_data.edit_tree)
+        active_node = context.space_data.edit_tree.nodes.active
+        rig_target = context.window_manager.fw_isoa_rigtarget
+        rig_subtarget = context.window_manager.fw_isoa_bonetarget
+        if isinstance(context.space_data.edit_tree.nodes.active, bpy.types.ShaderNodeTexImage):
+            if not  context.space_data.edit_tree.nodes.active.image: return {'FINISHED'}
+            image_node_generate(material,
+                active_node,
+                rig_target, 
+                rig_subtarget)
+        if isinstance(context.space_data.edit_tree.nodes.active, bpy.types.ShaderNodeHueSaturation):
+            hue_sat_val_node_generate(material,
+            active_node,
+            rig_target,
+            rig_subtarget
+            )
+        if isinstance(context.space_data.edit_tree.nodes.active, bpy.types.ShaderNodeMixRGB):
+            mix_rgb_node_generate(material,
+            active_node,
+            rig_target,
+            rig_subtarget
+            )
+        if isinstance(context.space_data.edit_tree.nodes.active, bpy.types.ShaderNodeMixShader):   
+            mix_shader_node_generate(material,
+            active_node,
+            rig_target,
+            rig_subtarget
+            )
+        
+        
+        return {'FINISHED'}
+
+class IsoaPanel(bpy.types.Panel):
+    """Creates a Panel in the Shader Editor 'Item' section
+    for the usage of Customized node autorig"""
+    bl_label = "Customized node autorig"
+    bl_idname = "FWISOA_PT_main"
+    bl_space_type = 'NODE_EDITOR'
+    bl_category = "Item"
+    bl_region_type = 'UI'
+
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        if context.space_data.edit_tree.nodes.active:
+            label = f"Active node: {context.space_data.edit_tree.nodes.active.name}"
+        else:
+            label = ""
+        row.label(text=label)
+        row = layout.row()
+        row.prop(context.window_manager, 'fw_isoa_rigtarget', text='')
+        if context.window_manager.fw_isoa_rigtarget:
+            if context.window_manager.fw_isoa_rigtarget.type == 'ARMATURE':
+                row = layout.row()
+                row.prop_search(context.window_manager, "fw_isoa_bonetarget", context.window_manager.fw_isoa_rigtarget.data, "bones", text="")
+        row = layout.row()
+        row.operator("fw_isoa.generate")    
+
+def bones():
+    armature = bpy.context.window_manager.main_target
+    if armature == None:
+        return
+    if armature.data in bpy.data.armatures.values():
+        enum_list = []
+        for bone in armature.data.bones.values():
+            enum_list.append((bone.name, bone.name, "", armature.data.bones.values().index(bone)))
+        return enum_list
+    else:
+        return 
+
+def fw_register():
+    bpy.utils.register_class(IsoaGenerate)
+    bpy.utils.register_class(IsoaPanel)
+    bpy.types.WindowManager.fw_isoa_rigtarget = bpy.props.PointerProperty(type=bpy.types.Object,
+                                                name='fw_isoa_bonetarget', 
+                                                description="rig on which create the custom property")
+    bpy.types.WindowManager.fw_isoa_bonetarget = bpy.props.StringProperty(default="",
+                                                name='fw_isoa_bonetarget', 
+                                                description="bone on which create the custom property")
+  #  bpy.types.ShaderNodeTexImage.
+
+def fw_unregister():
+    bpy.utils.unregister_class(IsoaGenerate)
+    bpy.utils.unregister_class(IsoaPanel)
+    del bpy.types.WindowManager.fw_isoa_rigtarget 
+    del bpy.types.WindowManager.fw_isoa_bonetarget 
