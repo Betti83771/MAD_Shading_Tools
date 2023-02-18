@@ -97,7 +97,7 @@ class NodeRigPanel(bpy.types.Panel):
     """Creates a Panel in the Shader Editor 'Item' section
     for the usage of the material node rigging to bone/object functions"""
     bl_label = "Node inputs to target"
-    bl_idname = "OBJECT_PT_noderig"
+    bl_idname = "MST_PT_noderig"
     bl_space_type = 'NODE_EDITOR'
     bl_category = "MAD Shading Tools"
     bl_region_type = 'UI'
