@@ -22,9 +22,11 @@ class GPSettingsBonePropPropertyGroup(bpy.types.PropertyGroup):
     modifier_data_path: bpy.props.StringProperty(description="TThe data path after the modifier")
 
 class GPSettingsBoneProp():
-    def __init__(self, default,prop_name="", prop_index=0, subtype=None, modifier_type="", data_path=""):
+    def __init__(self, default,prop_name="", min=0.0, max=1.0, prop_index=0, subtype=None, modifier_type="", data_path=""):
         self.default = default
         self.prop_name = prop_name
+        self.min = min
+        self.max = max
         self.prop_index= prop_index
         self.subtype = subtype
         self.modifier_type = modifier_type
@@ -38,20 +40,23 @@ class GPSettingsBoneProp():
         pose_bones[bone_name][prop_name] = self.default
         id_props = pose_bones[bone_name].id_properties_ui(prop_name)
         id_props.update(default = self.default,
-                        description = prop_name)
+                        description = prop_name,
+                        min = self.min,
+                        max = self.max,
+                        )
         if self.subtype:
             id_props.update(subtype=self.subtype)
 
 
 def make_default_properties_table():
     hue = GPSettingsBoneProp(0.5, prop_name="Hue", prop_index=1, modifier_type='GP_COLOR',data_path="hue" )
-    saturation = GPSettingsBoneProp(1.0, prop_name="Saturation", prop_index=2,modifier_type='GP_COLOR', data_path="saturation")
-    value = GPSettingsBoneProp(1.0, prop_name="Value", prop_index=3, modifier_type='GP_COLOR',data_path= "value")
-    strength = GPSettingsBoneProp(0.0, prop_name="Strength", prop_index=4, modifier_type='GP_TINT',data_path= "factor")
+    saturation = GPSettingsBoneProp(1.0, prop_name="Saturation",max=2.0, prop_index=2,modifier_type='GP_COLOR', data_path="saturation")
+    value = GPSettingsBoneProp(1.0, prop_name="Value", prop_index=3, max=2.0, modifier_type='GP_COLOR',data_path= "value")
+    strength = GPSettingsBoneProp(0.0, prop_name="Strength", prop_index=4,max=2.0, modifier_type='GP_TINT',data_path= "factor")
     color = GPSettingsBoneProp(Vector((1.0,1.0,1.0)), prop_name="Color", prop_index=5, subtype="COLOR", modifier_type='GP_TINT',data_path="color")
     return (hue, saturation, value, strength, color)
 
-def create_metarig_bone(context:bpy.types.Context, rig_obj:bpy.types.Object, bone_name="GP-settings", use_default_properties=True):
+def create_metarig_bone(context:bpy.types.Context, rig_obj:bpy.types.Object, bone_name="settings_GP", use_default_properties=True):
     """Add a bone in edit mode, to be included in a rigify metarig that would later generate a rig"""
     if context.mode != 'EDIT_ARMATURE': return
     assert rig_obj.type == 'ARMATURE'
@@ -232,17 +237,17 @@ class CreateGPShadingMetarigBone(bpy.types.Operator):
     def execute(self, context):
         if context.mode == 'EDIT_ARMATURE':
             create_metarig_bone(context, context.object, 
-                                bone_name="GP-settings", 
+                                bone_name=context.window_manager.mst_gprig_bone_name, 
                                 use_default_properties=context.window_manager.mst_gpr_use_default_prop_table)
-            context.window_manager.mst_gprig_subtarget = "GP-settings"
+            context.window_manager.mst_gprig_subtarget = context.window_manager.mst_gprig_bone_name
             context.window_manager.mst_gprig_rigtarget = context.object
         else:
             context.view_layer.objects.active = context.window_manager.mst_gprig_rigtarget
             if context.window_manager.mst_gprig_subtarget in context.window_manager.mst_gprig_rigtarget.data.bones.keys():
                 bone_name = context.window_manager.mst_gprig_subtarget
             else:
-                bone_name = "GP-settings"
-                context.window_manager.mst_gprig_subtarget = "GP-settings"
+                bone_name = context.window_manager.mst_gprig_bone_name
+                context.window_manager.mst_gprig_subtarget = context.window_manager.mst_gprig_bone_name
             create_metarig_bone(context, context.object, 
                                 bone_name=bone_name, 
                                 use_default_properties=context.window_manager.mst_gpr_use_default_prop_table)
@@ -339,7 +344,8 @@ class RigGpPanel(bpy.types.Panel):
                             context.window_manager, "mst_gpr_property_table", 
                             context.window_manager, "mst_gpr_property_table_active_idx")
             pass #TODO
-        
+        row = layout.row()
+        row.prop(context.window_manager, "mst_gprig_bone_name")
         row = layout.row()
         row.operator("mst.gprig_make_rig")
         row = layout.row()
@@ -382,7 +388,7 @@ def gprig_register_properties():
     bpy.types.WindowManager.mst_gprig_tint = bpy.props.BoolProperty(name="Tint")
     bpy.types.WindowManager.mst_gprig_time_offset = bpy.props.BoolProperty(name="Time offset")
     bpy.types.WindowManager.mst_gprig_opacity = bpy.props.BoolProperty(name="Opacity")
-    bpy.types.WindowManager.mst_gprig_bone_name = bpy.props.StringProperty(name="New bone name:", default="GP-settings")
+    bpy.types.WindowManager.mst_gprig_bone_name = bpy.props.StringProperty(name="New bone name:", default="settings_GP")
     bpy.types.WindowManager.mst_gpr_property_table_active_idx = bpy.props.IntProperty()
     bpy.types.WindowManager.mst_gpr_property_table = bpy.props.CollectionProperty(type=GPSettingsBonePropPropertyGroup)
     bpy.types.WindowManager.mst_gpr_use_default_prop_table = bpy.props.BoolProperty(
