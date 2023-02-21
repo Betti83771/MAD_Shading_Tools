@@ -29,7 +29,7 @@ def rig_node(node_inputs_dict, obj, bone=None, use_index_prefix=False):
     """inputs: node RNA (object), target object (bpy.types.Object), bone name (string) if armature"""
     if not node_inputs_dict:
         return
-
+    if not obj: return
     all_prop_names = []
 
     if bone:
