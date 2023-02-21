@@ -19,7 +19,7 @@
 bl_info = {
     "name": "MAD Shading Tools ",
     "author": "Betti",
-    "version": (1, 3, 0),
+    "version": (1, 3, 1),
     "blender": (3, 0, 0),
     "location": "Nodes > MAD Shading Tools",
     "description": """Material node rig and other operators""",
